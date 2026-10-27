@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import cluster, deployments, health, metrics, nodes, pods
+from app.api.routes import cluster, deployments, health, incidents, metrics, nodes, pods
 from app.core.config import Settings, get_settings
 from app.services.kubernetes_service import KubernetesService
 from app.services.prometheus_service import PrometheusService
@@ -62,9 +62,35 @@ async def lifespan(app: FastAPI):
         app.state.prometheus_service = prom_service
         logger.info("Prometheus service started")
 
+    # --- Diagnostics Scheduler ---
+    if settings.database_url and (
+        not hasattr(app.state, "diagnostics_scheduler")
+        or app.state.diagnostics_scheduler is None
+    ):
+        try:
+            from app.diagnostics.scheduler import DiagnosticsScheduler
+
+            scheduler = DiagnosticsScheduler(
+                settings=settings,
+                k8s_service=app.state.kubernetes_service,
+                prom_service=app.state.prometheus_service,
+            )
+            scheduler.start()
+            app.state.diagnostics_scheduler = scheduler
+            logger.info("Diagnostics scheduler started")
+        except Exception as exc:
+            logger.warning("Diagnostics scheduler not started: %s", exc)
+
     yield  # application runs
 
     # --- shutdown ---
+    if hasattr(app.state, "diagnostics_scheduler") and app.state.diagnostics_scheduler:
+        try:
+            await app.state.diagnostics_scheduler.stop()
+            logger.info("Diagnostics scheduler stopped")
+        except Exception as exc:
+            logger.warning("Error stopping diagnostics scheduler: %s", exc)
+
     if hasattr(app.state, "prometheus_service") and app.state.prometheus_service:
         if hasattr(app.state.prometheus_service, "close"):
             await app.state.prometheus_service.close()
@@ -95,7 +121,7 @@ def create_app(lifespan_handler=lifespan) -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
 
@@ -107,6 +133,8 @@ def create_app(lifespan_handler=lifespan) -> FastAPI:
     app.include_router(pods.router, prefix=prefix, tags=["pods"])
     app.include_router(deployments.router, prefix=prefix, tags=["deployments"])
     app.include_router(metrics.router, prefix=prefix, tags=["metrics"])
+    app.include_router(incidents.router, prefix=prefix, tags=["incidents"])
+    app.include_router(incidents.router, prefix="/api/v1", tags=["incidents"])
 
     return app
 

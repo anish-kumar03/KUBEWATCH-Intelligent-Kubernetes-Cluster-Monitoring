@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +82,21 @@ class IncidentRead(IncidentBase):
     created_at: datetime
     updated_at: datetime
     evidence: List[IncidentEvidenceRead] = Field(default_factory=list)
+
+    @computed_field
+    def rule_name(self) -> str:
+        """Alias rule_identifier to rule_name for UI display."""
+        return self.rule_identifier
+
+    @computed_field
+    def message(self) -> str:
+        """Human-readable message headline."""
+        return self.title
+
+    @computed_field
+    def observed_at(self) -> datetime:
+        """Observation timestamp compatible with frontend schema."""
+        return self.last_observed_at
 
     model_config = ConfigDict(from_attributes=True)
 

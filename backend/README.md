@@ -15,6 +15,11 @@ The FastAPI-based backend service for KubeWatch: An Intelligent Kubernetes Clust
 - **`app/schemas/`**: Strict typed Pydantic models with uniform `ApiResponse` envelope (`models.py`) and persistence schemas (`persistence.py`). Missing metrics are represented as `null`, never as zero.
 - **`app/services/kubernetes_service.py`**: Read-only facade over the official Kubernetes Python client. Supports both local kubeconfig (`local`) and in-cluster service account (`in_cluster`) modes without silent fallbacks. Never reads Kubernetes Secrets.
 - **`app/services/prometheus_service.py`**: Async HTTPX client for Prometheus. Restricts metric queries to validated, curated PromQL templates to prevent arbitrary injection.
+- **`app/diagnostics/`**:
+  - `base.py`: Abstract `DiagnosticRule`, normalized `EvidenceData`, `IncidentCandidate`, and `EvaluationContext`.
+  - `rules/`: Deterministic detection rules for restart activity, pending pods, deployment replica deficits, memory utilization relative to limits, and node pressure conditions.
+  - `engine.py`: Orchestrates rules, performs correlation, deduplicates incidents via UUIDv5 fingerprinting, and manages auto-recovery lifecycle in PostgreSQL.
+  - `scheduler.py`: Background polling task with non-blocking thread execution (`asyncio.to_thread`), clean lifecycle cancellation, and `asyncio.Lock` overlapping scan prevention.
 - **`app/api/routes/`**: Clean separation of route endpoints:
   - `health.py`: Readiness/liveness checks verifying Kubernetes and Prometheus connectivity.
   - `cluster.py`: Cluster-wide summary (node count, pod count, namespaces, capacity, usage).
@@ -22,6 +27,7 @@ The FastAPI-based backend service for KubeWatch: An Intelligent Kubernetes Clust
   - `pods.py`: Pod listing with optional namespace filter, phases, restarts, and container metrics.
   - `deployments.py`: Deployment status and replica counts with optional namespace filter.
   - `metrics.py`: Curated CPU and memory metrics for nodes and pods (instant and range).
+  - `incidents.py`: Incidents listing, filtering, detail retrieval, acknowledgment, resolution, and on-demand sweep trigger.
 
 ---
 
