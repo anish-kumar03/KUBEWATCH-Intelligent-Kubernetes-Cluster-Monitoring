@@ -52,3 +52,14 @@ class TestSettings:
         """kube_context should default to None (current context)."""
         s = Settings()
         assert s.kube_context is None
+
+    def test_database_url_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """database_url can be loaded from DATABASE_URL or KUBEWATCH_DATABASE_URL."""
+        monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pass@localhost:5432/testdb")
+        s = Settings()
+        assert s.database_url == "postgresql+psycopg://user:pass@localhost:5432/testdb"
+
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.setenv("KUBEWATCH_DATABASE_URL", "postgresql+psycopg://user2:pass2@localhost:5432/testdb2")
+        s2 = Settings()
+        assert s2.database_url == "postgresql+psycopg://user2:pass2@localhost:5432/testdb2"

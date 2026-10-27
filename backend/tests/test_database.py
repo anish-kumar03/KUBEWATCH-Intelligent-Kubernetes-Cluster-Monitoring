@@ -300,6 +300,15 @@ class TestTransactionsAndSessionScope:
         assert health["status"] == "ok"
         assert health["connected"] is True
 
+    def test_get_db_raises_503_when_unconfigured(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """get_db dependency raises HTTP 503 when DATABASE_URL is not configured."""
+        monkeypatch.setenv("DATABASE_URL", "")
+        monkeypatch.setenv("KUBEWATCH_DATABASE_URL", "")
+        with pytest.raises(HTTPException) as exc_info:
+            next(get_db())
+        assert exc_info.value.status_code == 503
+        assert "not configured" in exc_info.value.detail
+
 
 # ---------------------------------------------------------------------------
 # Optional Integration Tests: Local PostgreSQL Instance

@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, List
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -87,6 +87,7 @@ class Settings(BaseSettings):
 
     database_url: str | None = Field(
         default=None,
+        validation_alias=AliasChoices("database_url", "kubewatch_database_url"),
         description="Database connection URL (e.g. postgresql+psycopg://user:pass@host:port/db).",
     )
 

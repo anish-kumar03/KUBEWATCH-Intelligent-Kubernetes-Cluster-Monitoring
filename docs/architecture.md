@@ -223,7 +223,7 @@ file support. Defaults are tuned for local development.
 | Variable | Default | Description |
 |---|---|---|
 | `KUBEWATCH_PROMETHEUS_URL` | `http://localhost:9090` | Prometheus base URL |
-| `KUBEWATCH_DATABASE_URL` | `postgresql+asyncpg://kubewatch:kubewatch@localhost:5432/kubewatch` | PostgreSQL connection string |
+| `DATABASE_URL` / `KUBEWATCH_DATABASE_URL` | `postgresql+psycopg://kubewatch:local_dev_only_change_me@127.0.0.1:5432/kubewatch` (dev only) | PostgreSQL connection string via psycopg 3 driver |
 | `KUBEWATCH_KUBE_CONTEXT` | *(current context)* | Kubernetes context to use |
 | `KUBEWATCH_LOG_LEVEL` | `INFO` | Python logging level |
 | `KUBEWATCH_CORS_ORIGINS` | `http://localhost:5173` | Allowed CORS origins |
