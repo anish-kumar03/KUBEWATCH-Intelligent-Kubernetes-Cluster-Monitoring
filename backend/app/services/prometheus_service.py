@@ -84,6 +84,16 @@ CURATED_QUERIES: Dict[str, str] = {
         'sum by (namespace, pod) (container_memory_working_set_bytes{{namespace=~"{namespace}", pod=~"{pod}", container!=""}})'
     ),
 
+    # Per-container CPU usage in cores.
+    "container_cpu_usage_cores": (
+        'sum by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{{namespace=~"{namespace}", pod=~"{pod}", container!=""}}[5m]))'
+    ),
+
+    # Per-container memory working set in bytes.
+    "container_memory_usage_bytes": (
+        'sum by (namespace, pod, container) (container_memory_working_set_bytes{{namespace=~"{namespace}", pod=~"{pod}", container!=""}})'
+    ),
+
     # ----- Cluster-wide utilisation (for overview) -----
 
     # Cluster-wide CPU usage percentage.

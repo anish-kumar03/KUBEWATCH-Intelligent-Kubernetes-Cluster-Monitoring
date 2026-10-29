@@ -156,3 +156,125 @@ Forces an immediate execution of all diagnostic rules and persistence updates.
 }
 ```
 
+
+
+---
+
+## 2. Resource Recommendations API
+
+The Recommendations API provides access to data-driven container sizing advisory suggestions, review lifecycle tracking, and on-demand evaluation sweeps.
+
+### 2.1 List Recommendations
+
+`GET /api/v1/recommendations`  
+`GET /api/recommendations`
+
+Returns advisory recommendations ordered by recency (`created_at` descending).
+
+#### Query Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `status` | string | `null` | Filter by review status: `open` (`pending`), `applied`, `dismissed` |
+| `namespace` | string | `null` | Filter by Kubernetes namespace |
+| `workload_type` | string | `null` | Filter by workload kind: `Deployment`, `Pod`, `StatefulSet` |
+| `workload_name` | string | `null` | Filter by workload name |
+| `recommendation_type` | string | `null` | Filter by type: `cpu_underutilization`, `memory_underutilization`, `high_memory_limit_utilization`, `insufficient_historical_data` |
+| `cluster_id` | string | `null` | Filter by cluster identifier |
+| `limit` | integer | `50` | Maximum items to return (1 - 200) |
+| `offset` | integer | `0` | Number of items to skip |
+
+#### Example Response
+
+```json
+{
+  "status": "ok",
+  "data": [
+    {
+      "id": "2e698ea4-81c3-4b37-b0c5-45fafe3b8976",
+      "cluster_id": "production",
+      "namespace": "default",
+      "workload_type": "Deployment",
+      "workload_name": "checkout-service",
+      "container_name": "checkout",
+      "recommendation_type": "cpu_underutilization",
+      "observation_window": "24h",
+      "status": "open",
+      "resource_type": "Deployment",
+      "current_spec": {
+        "cpu_request": "1000m"
+      },
+      "recommended_spec": {
+        "cpu_request": "125m"
+      },
+      "reasoning": "### Workload & Container\nWorkload `Deployment/default/checkout-service` (container `checkout`).\n\n### Observation Period & Telemetry\n- Observation duration: 24.0 hours (200 valid samples, 69.4% data completeness).\n- Measured CPU usage: average 80m, p95 100m, peak 150m.\n\n### Current Configuration vs Measured Utilization\n- Configured CPU request: `1000m` (1000m).\n- Workload consumed only 10.0% of its reserved CPU request at p95 over the observation period.\n\n### Proposed Action\n- Right-size CPU request from `1000m` to `125m` (includes 25% safety headroom above measured p95).\n- Frees 875m of cluster allocatable CPU capacity for other workloads.\n\n### Assumptions & Risk Assessment\n- Assumes observed 24.0h window captures typical peak workload traffic without pending batch spikes.\n- Cost Disclaimer: Reducing CPU requests increases pod scheduling density and frees node allocatable capacity; cloud billing reduction depends on whether overall cluster node count can be downscaled.",
+      "estimated_savings": "Frees 875m of allocatable node CPU (87.5% reduction in request)",
+      "review_status": "pending",
+      "created_at": "2026-10-28T22:00:00Z",
+      "updated_at": "2026-10-28T22:15:00Z"
+    }
+  ],
+  "error": null,
+  "timestamp": "2026-10-28T22:15:05Z"
+}
+```
+
+---
+
+### 2.2 Retrieve Recommendation Details
+
+`GET /api/v1/recommendations/{recommendation_id}`  
+`GET /api/recommendations/{recommendation_id}`
+
+Returns the full recommendation record matching `recommendation_id`.
+
+#### Status Codes
+* `200 OK`: Recommendation found.
+* `404 Not Found`: Recommendation with specified ID does not exist.
+
+---
+
+### 2.3 Update Recommendation Review Status
+
+`PATCH /api/v1/recommendations/{recommendation_id}`  
+`POST /api/v1/recommendations/{recommendation_id}/status`
+
+Updates the human review status of a recommendation to `applied` or `dismissed`.
+
+#### Request Body
+
+```json
+{
+  "review_status": "applied"
+}
+```
+
+#### Status Codes
+* `200 OK`: Recommendation status updated.
+* `400 Bad Request`: Invalid review status provided.
+* `404 Not Found`: Recommendation not found.
+
+---
+
+### 2.4 Trigger On-Demand Recommendation Evaluation
+
+`POST /api/v1/recommendations/evaluate`  
+`POST /api/recommendations/evaluate`
+
+Triggers an immediate evaluation sweep of live Kubernetes workloads and Prometheus telemetry.
+
+#### Example Response
+
+```json
+{
+  "status": "ok",
+  "data": {
+    "created": 1,
+    "updated": 2,
+    "unchanged": 0,
+    "total_candidates": 3
+  },
+  "error": null,
+  "timestamp": "2026-10-28T22:15:10Z"
+}
+```

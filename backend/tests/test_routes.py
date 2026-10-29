@@ -184,3 +184,13 @@ class TestDeployments:
         response = test_client.get("/api/deployments?namespace=BAD!")
         body = response.json()
         assert body["status"] == "error"
+
+    def test_deployments_k8s_error(self, test_client, mock_k8s_service) -> None:
+        """Returns error when Kubernetes is unreachable."""
+        mock_k8s_service.list_deployments.side_effect = (
+            KubernetesConnectionError("unreachable")
+        )
+        response = test_client.get("/api/deployments")
+        body = response.json()
+        assert body["status"] == "error"
+        assert "unavailable" in body["error"].lower()

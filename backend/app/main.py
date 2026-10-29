@@ -9,11 +9,22 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from app.api.routes import cluster, deployments, health, incidents, metrics, nodes, pods
+from app.api.routes import (
+    cluster,
+    deployments,
+    health,
+    incidents,
+    metrics,
+    nodes,
+    pods,
+    recommendations,
+)
 from app.core.config import Settings, get_settings
 from app.services.kubernetes_service import KubernetesService
 from app.services.prometheus_service import PrometheusService
@@ -125,16 +136,29 @@ def create_app(lifespan_handler=lifespan) -> FastAPI:
         allow_headers=["*"],
     )
 
-    # --- Routers ---
-    prefix = "/api"
-    app.include_router(health.router, prefix=prefix, tags=["health"])
-    app.include_router(cluster.router, prefix=prefix, tags=["cluster"])
-    app.include_router(nodes.router, prefix=prefix, tags=["nodes"])
-    app.include_router(pods.router, prefix=prefix, tags=["pods"])
-    app.include_router(deployments.router, prefix=prefix, tags=["deployments"])
-    app.include_router(metrics.router, prefix=prefix, tags=["metrics"])
-    app.include_router(incidents.router, prefix=prefix, tags=["incidents"])
-    app.include_router(incidents.router, prefix="/api/v1", tags=["incidents"])
+    # --- Routers (Mount under both /api and /api/v1 for spec compliance) ---
+    for prefix in ("/api", "/api/v1"):
+        app.include_router(health.router, prefix=prefix, tags=["health"])
+        app.include_router(cluster.router, prefix=prefix, tags=["cluster"])
+        app.include_router(nodes.router, prefix=prefix, tags=["nodes"])
+        app.include_router(pods.router, prefix=prefix, tags=["pods"])
+        app.include_router(deployments.router, prefix=prefix, tags=["deployments"])
+        app.include_router(metrics.router, prefix=prefix, tags=["metrics"])
+        app.include_router(incidents.router, prefix=prefix, tags=["incidents"])
+        app.include_router(recommendations.router, prefix=prefix, tags=["recommendations"])
+
+    # --- Error Envelope Handler ---
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "status": "error",
+                "data": None,
+                "error": str(exc.detail),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
     return app
 

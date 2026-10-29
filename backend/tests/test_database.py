@@ -309,6 +309,39 @@ class TestTransactionsAndSessionScope:
         assert exc_info.value.status_code == 503
         assert "not configured" in exc_info.value.detail
 
+    def test_get_db_raises_503_when_engine_unreachable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """get_db dependency raises HTTP 503 when database engine connection fails."""
+        monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://bad:pass@127.0.0.1:5432/bad_db")
+        def mock_failing_engine():
+            raise Exception("Connection refused")
+
+        monkeypatch.setattr("app.db.session.get_engine", mock_failing_engine)
+        with pytest.raises(HTTPException) as exc_info:
+            next(get_db())
+        assert exc_info.value.status_code == 503
+        assert "unreachable" in exc_info.value.detail
+
+    def test_api_returns_503_envelope_when_db_unreachable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """FastAPI endpoints return 503 with uniform error envelope when DB is unavailable."""
+        from fastapi.testclient import TestClient
+        from app.main import create_app
+
+        def mock_failing_db():
+            raise HTTPException(
+                status_code=503,
+                detail="Database service is currently unreachable.",
+            )
+
+        app = create_app(lifespan_handler=None)
+        app.dependency_overrides[get_db] = mock_failing_db
+        with TestClient(app) as client:
+            resp = client.get("/api/incidents")
+            assert resp.status_code == 503
+            body = resp.json()
+            assert body["status"] == "error"
+            assert "unreachable" in body["error"]
+            assert body["data"] is None
+
 
 # ---------------------------------------------------------------------------
 # Optional Integration Tests: Local PostgreSQL Instance
@@ -330,7 +363,7 @@ class TestPostgreSqlIntegration:
         )
         try:
             from app.db.session import create_db_engine
-            engine = create_db_engine(db_url)
+            engine = create_db_engine(db_url, connect_args={"connect_timeout": 1})
             with engine.connect() as conn:
                 conn.execute(select(1))
         except Exception as exc:

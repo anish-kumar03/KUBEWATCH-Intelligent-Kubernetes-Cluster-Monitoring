@@ -123,7 +123,7 @@ export interface IncidentInfo {
   namespace?: string | null;
   message: string;
   observed_at: string;
-  status: 'active' | 'resolved';
+  status: 'active' | 'acknowledged' | 'resolved';
 }
 
 export interface RecommendationInfo {

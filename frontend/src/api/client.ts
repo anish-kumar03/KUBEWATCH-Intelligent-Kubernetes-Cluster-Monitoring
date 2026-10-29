@@ -71,8 +71,14 @@ async function fetchJson<T>(endpoint: string, searchParams?: Record<string, stri
     let errorDetail = `HTTP ${response.status} ${response.statusText}`;
     try {
       const errBody = await response.json();
-      if (errBody && errBody.error) {
-        errorDetail = errBody.error;
+      if (errBody) {
+        if (typeof errBody.error === 'string') {
+          errorDetail = errBody.error;
+        } else if (typeof errBody.detail === 'string') {
+          errorDetail = errBody.detail;
+        } else if (errBody.detail && typeof errBody.detail === 'object') {
+          errorDetail = JSON.stringify(errBody.detail);
+        }
       }
     } catch {
       // Body not JSON

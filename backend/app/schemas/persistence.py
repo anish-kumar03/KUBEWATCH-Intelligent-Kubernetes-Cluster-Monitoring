@@ -140,6 +140,48 @@ class ResourceRecommendationRead(ResourceRecommendationBase):
     created_at: datetime
     updated_at: datetime
 
+    @computed_field
+    def status(self) -> str:
+        """Map review_status to frontend expectation (pending -> open)."""
+        if self.review_status == "pending":
+            return "open"
+        return self.review_status
+
+    @computed_field
+    def resource_type(self) -> str:
+        """Resource type alias."""
+        return self.workload_type
+
+    @computed_field
+    def current_spec(self) -> dict[str, str]:
+        """Current resource specification summary."""
+        spec = self.current_configuration.get("spec")
+        if isinstance(spec, dict):
+            return {str(k): str(v) for k, v in spec.items()}
+        return {
+            str(k): str(v)
+            for k, v in self.current_configuration.items()
+            if isinstance(v, (str, int, float)) and k not in ("recommended_spec",)
+        }
+
+    @computed_field
+    def recommended_spec(self) -> dict[str, str]:
+        """Recommended resource specification."""
+        rec = self.current_configuration.get("recommended_spec")
+        if isinstance(rec, dict):
+            return {str(k): str(v) for k, v in rec.items()}
+        return {}
+
+    @computed_field
+    def reasoning(self) -> str:
+        """Rationale for the recommendation."""
+        return self.recommendation_text
+
+    @computed_field
+    def estimated_savings(self) -> Optional[str]:
+        """Resource capacity reduction summary (not monetary cost)."""
+        return self.measured_usage.get("resource_reduction_summary")
+
     model_config = ConfigDict(from_attributes=True)
 
 
